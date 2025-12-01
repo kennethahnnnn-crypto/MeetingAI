@@ -1,0 +1,17 @@
+# Python internals
+__pycache__/
+*.pyc
+
+# Virtual Environment (Heavy!)
+venv/
+env/
+
+# Database (Don't upload user data!)
+clausemate.db
+instance/
+
+# Mac System files
+.DS_Store
+
+# Logs
+*.log

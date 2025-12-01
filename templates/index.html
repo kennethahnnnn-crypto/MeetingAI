@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinuteMate - AI 회의록</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+    <style>
+        :root { --primary: #4F46E5; --danger: #EF4444; --bg: #F8FAFC; --text: #0F172A; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text); overflow-x: hidden; }
+        
+        /* LAYOUT GRID (Ads - Content - Ads) */
+        .layout-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .ad-sidebar {
+            width: 160px;
+            min-width: 160px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 80px; /* Align with container */
+        }
+
+        .ad-placeholder {
+            background: #E2E8F0;
+            border: 1px dashed #94A3B8;
+            color: #64748B;
+            height: 600px; /* Skyscraper Ad Size */
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            text-align: center;
+            padding: 10px;
+        }
+
+        /* MOBILE RESPONSIVE: Hide Ads on Phone */
+        @media (max-width: 1100px) {
+            .ad-sidebar { display: none; }
+        }
+
+        .container { width: 100%; max-width: 800px; background: white; padding: 40px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); height: fit-content; }
+        
+        header { text-align: center; margin-bottom: 40px; }
+        .logo { font-size: 40px; display: block; margin-bottom: 10px; }
+        h1 { font-size: 28px; margin-bottom: 10px; color: #111; letter-spacing: -0.5px; font-weight: 800; }
+        .subtitle { color: #6B7280; font-size: 16px; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; background: #F1F5F9; padding: 5px; border-radius: 12px; }
+        .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; border-radius: 8px; font-weight: 600; font-size: 14px; transition: 0.2s; color: #64748B; }
+        .tab.active { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        .record-area, .upload-area { border: 2px dashed #E2E8F0; border-radius: 16px; padding: 40px 20px; text-align: center; background: #F8FAFC; transition: 0.2s; }
+        .record-area { display: none; }
+        .record-area.active, .upload-area.active { display: block; }
+        
+        /* Drag & Drop Styles */
+        .upload-area { cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary); background: #EFF6FF; }
+        .upload-area.dragover { border-color: var(--primary); background: #DBEAFE; transform: scale(0.99); }
+
+        .mic-btn { width: 80px; height: 80px; background: var(--danger); border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); transition: 0.2s; }
+        .mic-btn:hover { transform: scale(1.05); }
+        .mic-btn.recording { animation: pulse 1.5s infinite; background: white; border: 4px solid var(--danger); }
+        .mic-icon { font-size: 32px; color: white; }
+        .mic-btn.recording .mic-icon { color: var(--danger); font-size: 24px; content: '⬛'; }
+        
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        .timer { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; margin-bottom: 10px; color: #334155; }
+        .upload-icon { font-size: 48px; margin-bottom: 15px; display: block; }
+        .upload-text { font-size: 16px; font-weight: 600; color: #334155; }
+        .upload-sub { font-size: 13px; color: #94A3B8; margin-top: 5px; }
+        
+        .analyze-btn { width: 100%; padding: 16px; margin-top: 20px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; display: none; }
+        .analyze-btn:hover { background: #1D4ED8; }
+        .analyze-btn:disabled { background: #94A3B8; cursor: wait; }
+
+        #resultArea { display: none; margin-top: 40px; border-top: 1px solid #E2E8F0; padding-top: 40px; animation: slideUp 0.5s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .meeting-title { font-size: 24px; font-weight: 800; color: #0F172A; margin-bottom: 5px; }
+        .meeting-date { font-size: 13px; color: #64748B; margin-bottom: 20px; }
+        
+        .export-row { display: flex; gap: 10px; margin-bottom: 30px; }
+        .export-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #E2E8F0; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; transition: 0.1s; color: #334155; }
+        .export-btn:hover { background: #F1F5F9; border-color: #CBD5E1; }
+
+        .section { margin-bottom: 30px; }
+        .section-title { font-size: 13px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .summary-box { background: #F8FAFC; padding: 20px; border-radius: 12px; line-height: 1.6; border: 1px solid #E2E8F0; }
+        
+        .action-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .action-table th { text-align: left; padding: 12px; border-bottom: 2px solid #E2E8F0; color: #64748B; font-weight: 600; background: #F8FAFC; }
+        .action-table td { padding: 14px 12px; border-bottom: 1px solid #E2E8F0; }
+        .tag { background: #DBEAFE; color: #1E40AF; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .decision-list li { margin-bottom: 8px; list-style-type: none; position: relative; padding-left: 20px; }
+        .decision-list li::before { content: '✅'; position: absolute; left: 0; font-size: 12px; top: 3px; }
+        .timeline-item { display: flex; gap: 15px; margin-bottom: 10px; font-size: 14px; padding: 8px; border-radius: 8px; transition: 0.1s; }
+        .timeline-item:hover { background: #F8FAFC; }
+        .time-stamp { color: #64748B; font-family: monospace; min-width: 50px; font-weight: 600; }
+
+        .loader { display: none; text-align: center; margin-top: 40px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #E2E8F0; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s infinite linear; margin: 0 auto 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        @media print {
+            .ad-sidebar, header, .tabs, .record-area, .upload-area, .analyze-btn, .export-row { display: none !important; }
+            .container { box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
+            .layout-wrapper { display: block; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout-wrapper">
+    <aside class="ad-sidebar left">
+        <div class="ad-placeholder">
+            Amazon Ad<br>(160x600)<br>Space
+        </div>
+    </aside>
+
+    <main class="container">
+        <header>
+            <span class="logo">⚡️</span>
+            <h1>MinuteMate</h1>
+            <div class="subtitle">1시간 회의도 30초 만에 정리해 드립니다.</div>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchMode('record')">🔴 라이브 녹음</div>
+            <div class="tab" onclick="switchMode('upload')">📂 파일 업로드</div>
+        </div>
+
+        <div id="recordMode" class="record-area active">
+            <div class="timer" id="timer">00:00</div>
+            <button class="mic-btn" id="micBtn" onclick="toggleRecording()">
+                <span class="mic-icon" id="micIcon">🎤</span>
+            </button>
+            <div class="status-text" id="statusText">버튼을 눌러 회의 녹음을 시작하세요</div>
+        </div>
+
+        <div id="uploadMode" class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <span class="upload-icon">☁️</span>
+            <div class="upload-text">파일 드래그 또는 클릭</div>
+            <div class="upload-sub">지원: MP3, M4A, WAV (최대 100MB)</div>
+            <input type="file" id="fileInput" accept="audio/*" onchange="handleFileSelect(this)" style="display:none">
+            <div id="fileName" style="margin-top:15px; font-weight:600; color:var(--primary); display:none"></div>
+        </div>
+
+        <button class="analyze-btn" id="analyzeBtn" onclick="uploadAndAnalyze()">⚡️ 회의록 생성하기</button>
+
+        <div id="loader" class="loader">
+            <div class="spinner"></div>
+            <div style="font-size: 14px; color: #6B7280;">AI가 회의 내용을 분석 중입니다...<br>(1시간 분량도 약 1분 내외로 완료됩니다)</div>
+        </div>
+
+        <div id="resultArea">
+            <div class="report-header">
+                <div class="meeting-title" id="rTitle"></div>
+                <div class="meeting-date">Generated by MinuteMate</div>
+                
+                <div class="export-row">
+                    <button class="export-btn" onclick="downloadWord()">📄 Word 다운로드</button>
+                    <button class="export-btn" onclick="window.print()">🖨️ PDF 인쇄</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📌 요약 (Executive Summary)</div>
+                <div class="summary-box" id="rSummary"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">✅ 액션 아이템 (Action Items)</div>
+                <table class="action-table">
+                    <thead><tr><th width="20%">담당자</th><th>할 일</th><th width="20%">마감기한</th></tr></thead>
+                    <tbody id="rActionItems"></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">⚖️ 주요 결정사항 (Decisions)</div>
+                <ul style="padding-left:20px; line-height:1.6;" id="rDecisions"></ul>
+            </div>
+
+            <div class="section">
+                <div class="section-title">⏱️ 타임라인 (Timeline)</div>
+                <div id="rTimeline"></div>
+            </div>
+        </div>
+    </main>
+
+    <aside class="ad-sidebar right">
+        <div class="ad-placeholder">
+            Amazon Ad<br>(160x600)<br>Space
+        </div>
+    </aside>
+</div>
+
+<script>
+    let mediaRecorder, audioChunks = [], recordedBlob = null, timerInterval, seconds = 0, currentData = {};
+    let droppedFile = null; // To store dragged file
+
+    function switchMode(mode) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab[onclick="switchMode('${mode}')"]`).classList.add('active');
+        document.getElementById('recordMode').classList.remove('active');
+        document.getElementById('uploadMode').classList.remove('active');
+        document.getElementById(mode + 'Mode').classList.add('active');
+        resetUI();
+    }
+
+    function resetUI() {
+        document.getElementById('analyzeBtn').style.display = 'none';
+        document.getElementById('fileName').style.display = 'none';
+        document.getElementById('fileInput').value = "";
+        recordedBlob = null;
+        droppedFile = null;
+    }
+
+    // DRAG AND DROP
+    const dropZone = document.getElementById('uploadMode');
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        
+        if (e.dataTransfer.files.length > 0) {
+            droppedFile = e.dataTransfer.files[0];
+            // Update UI
+            document.getElementById('fileName').style.display = 'block';
+            document.getElementById('fileName').innerText = "✅ 선택됨: " + droppedFile.name;
+            document.getElementById('analyzeBtn').style.display = 'block';
+        }
+    });
+
+    function handleFileSelect(input) {
+        if (input.files[0]) {
+            document.getElementById('fileName').style.display = 'block';
+            document.getElementById('fileName').innerText = "✅ " + input.files[0].name;
+            document.getElementById('analyzeBtn').style.display = 'block';
+            recordedBlob = null;
+            droppedFile = null;
+        }
+    }
+
+    // RECORDER
+    async function toggleRecording() {
+        const btn = document.getElementById('micBtn');
+        const icon = document.getElementById('micIcon');
+        const status = document.getElementById('statusText');
+
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                let mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(audioChunks, { type: mimeType });
+                    status.innerText = "✅ 녹음 완료!";
+                    document.getElementById('analyzeBtn').style.display = 'block';
+                    btn.classList.remove('recording');
+                    icon.innerText = "🎤";
+                    clearInterval(timerInterval);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                btn.classList.add('recording');
+                icon.innerText = "⬛";
+                status.innerText = "녹음 중... (클릭하여 종료)";
+                
+                seconds = 0;
+                document.getElementById('timer').innerText = "00:00";
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                    const s = (seconds % 60).toString().padStart(2, '0');
+                    document.getElementById('timer').innerText = `${m}:${s}`;
+                }, 1000);
+
+            } catch (err) { alert("마이크 권한을 허용해주세요!"); }
+        } else { mediaRecorder.stop(); }
+    }
+
+    async function uploadAndAnalyze() {
+        let fileToSend = null;
+        
+        // Determine which file source to use
+        if (recordedBlob) {
+            let ext = recordedBlob.type.includes('mp4') ? 'm4a' : 'webm';
+            fileToSend = new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type });
+        } else if (droppedFile) {
+            fileToSend = droppedFile;
+        } else if (document.getElementById('fileInput').files[0]) {
+            fileToSend = document.getElementById('fileInput').files[0];
+        } else {
+            return alert("파일이 없습니다.");
+        }
+
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('resultArea').style.display = 'none';
+        document.getElementById('analyzeBtn').disabled = true;
+
+        const formData = new FormData();
+        formData.append('audio', fileToSend);
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            currentData = data;
+            document.getElementById('rTitle').innerText = data.title;
+            document.getElementById('rSummary').innerText = data.summary;
+            document.getElementById('rActionItems').innerHTML = data.action_items.map(i => 
+                `<tr><td><span class="tag">${i.owner}</span></td><td>${i.task}</td><td style="color:#DC2626; font-weight:bold;">${i.deadline}</td></tr>`
+            ).join('');
+            document.getElementById('rDecisions').innerHTML = data.key_decisions.map(d => `<li>${d}</li>`).join('');
+            document.getElementById('rTimeline').innerHTML = data.timeline.map(t => 
+                `<div class="timeline-item"><span class="time-stamp">${t.time}</span><span>${t.topic}</span></div>`
+            ).join('');
+
+            document.getElementById('resultArea').style.display = 'block';
+        } catch (e) { alert("오류: " + e.message); } 
+        finally {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+    }
+
+    async function downloadWord() {
+        if (!currentData.title) return;
+        try {
+            const res = await fetch('/download_word', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(currentData)
+            });
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentData.title}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (e) { alert("다운로드 실패"); }
+    }
+</script>
+</body>
+</html>
